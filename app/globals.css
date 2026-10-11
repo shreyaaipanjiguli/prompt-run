@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -49,8 +49,10 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: #f5f4ef;
+  --foreground: #202a22;
+  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -121,10 +123,44 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
   html {
     @apply font-sans;
+  }
+  button, input {
+    font: inherit;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 3px solid #9caf91;
+    outline-offset: 2px;
+  }
+  input::placeholder {
+    color: #969c91;
+  }
+}
+
+@layer components {
+  .field {
+    @apply min-w-0 w-full rounded-xl border border-[#dfe3da] bg-white px-3 py-2.5 text-sm text-[#263127] outline-none transition placeholder:text-[#969c91] focus:border-[#819879] focus:ring-2 focus:ring-[#819879]/15;
+  }
+  .field-dark {
+    @apply w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/45 focus:border-[#c2d0bb] focus:ring-2 focus:ring-[#c2d0bb]/20;
+  }
+  .button-primary {
+    @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#293b2d] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#3b5540] disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .button-secondary {
+    @apply inline-flex min-h-9 items-center gap-1.5 rounded-xl border border-[#dfe3da] bg-white px-3 py-2 text-xs font-semibold text-[#344637] transition hover:bg-[#f4f6f1] disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .button-dark-secondary {
+    @apply inline-flex min-h-10 items-center justify-center rounded-xl border border-white/20 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10;
+  }
+  .button-light {
+    @apply inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#dce8d4] px-3 py-2 text-sm font-bold text-[#293b2d] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40;
   }
 }
