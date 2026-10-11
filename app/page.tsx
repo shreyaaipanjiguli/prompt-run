@@ -12,6 +12,7 @@ import { simulateExpense, simulateSkip } from "@/lib/decision";
 import type { DecisionScenario } from "@/lib/decision";
 import { initialLedgerState, ledgerReducer, type Subscription } from "@/lib/ledger";
 import type { PlannedCharge } from "@/lib/budget";
+import { getNextMoneyPlanTab, moneyPlanTabs, type MoneyPlanTabId } from "@/lib/money-plan-tabs";
 
 const navItems = [
   { id: "overview", label: "Overview", icon: HomeIcon },
@@ -28,7 +29,8 @@ const secondaryButton = "inline-flex min-h-8 items-center justify-center gap-1.5
 export default function Home() {
   const [state, dispatch] = useReducer(ledgerReducer, initialLedgerState);
   const [activeSection, setActiveSection] = useState("overview");
-  const [moneyPlanTab, setMoneyPlanTab] = useState("budget-goals");
+  const [moneyPlanTab, setMoneyPlanTab] = useState<MoneyPlanTabId>("budget-goals");
+  const moneyPlanTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [incomeName, setIncomeName] = useState("");
   const [incomeAmount, setIncomeAmount] = useState("");
   const [expenseName, setExpenseName] = useState("");
@@ -79,6 +81,16 @@ export default function Home() {
     const value = nextId.current;
     nextId.current += 1;
     return value;
+  }
+
+  function handleMoneyPlanTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const nextTab = getNextMoneyPlanTab(moneyPlanTab, event.key);
+    if (!nextTab) return;
+
+    event.preventDefault();
+    setMoneyPlanTab(nextTab);
+    const nextIndex = moneyPlanTabs.findIndex((tab) => tab.id === nextTab);
+    moneyPlanTabRefs.current[nextIndex]?.focus();
   }
 
   function addEntry(kind: "income" | "expense") {
@@ -227,8 +239,8 @@ export default function Home() {
             </div>
           </section>
 
-          {activeSection === "money-plan" && <div className="mb-5 flex flex-wrap gap-1 border-b border-[#e7e8e3] pb-2" role="tablist" aria-label="Money Plan sections">{[{id:"budget-goals",label:"Budget & Goals"},{id:"commitments",label:"Upcoming commitments"},{id:"subscriptions",label:"Subscriptions"}].map((tab)=><button key={tab.id} type="button" role="tab" aria-selected={moneyPlanTab===tab.id} onClick={()=>setMoneyPlanTab(tab.id)} className={`rounded-md px-3 py-2 text-sm ${moneyPlanTab===tab.id?"bg-[#eeefeb] font-semibold text-[#30352e]":"text-[#70756e] hover:bg-[#f0f1ed]"}`}>{tab.label}</button>)}</div>}
-          <section id="budget-goals" className={activeSection === "money-plan" && moneyPlanTab === "budget-goals" ? "scroll-mt-20" : "hidden"} aria-labelledby="budget-title">
+          {activeSection === "money-plan" && <div className="mb-5 flex flex-wrap gap-1 border-b border-[#e7e8e3] pb-2" role="tablist" aria-label="Money Plan sections">{moneyPlanTabs.map((tab, index)=><button key={tab.id} ref={(element) => { moneyPlanTabRefs.current[index] = element; }} id={tab.tabId} type="button" role="tab" aria-selected={moneyPlanTab===tab.id} aria-controls={tab.panelId} tabIndex={moneyPlanTab===tab.id ? 0 : -1} onKeyDown={handleMoneyPlanTabKeyDown} onClick={()=>setMoneyPlanTab(tab.id)} className={`rounded-md px-3 py-2 text-sm ${moneyPlanTab===tab.id?"bg-[#eeefeb] font-semibold text-[#30352e]":"text-[#70756e] hover:bg-[#f0f1ed]"}`}>{tab.label}</button>)}</div>}
+          <section id={moneyPlanTabs[0].panelId} role="tabpanel" aria-labelledby={moneyPlanTabs[0].tabId} className={activeSection === "money-plan" && moneyPlanTab === moneyPlanTabs[0].id ? "scroll-mt-20" : "hidden"}>
             <SectionHeading eyebrow="Plan" title="Budget & goals" description="Cash, commitments, and set-aside savings stay distinct."/>
             <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(270px,0.8fr)]">
               <div className="divide-y divide-[#e7e8e3] border-y border-[#e7e8e3]">
@@ -244,7 +256,8 @@ export default function Home() {
                 <div className="flex items-center justify-between"><div><h3 className="text-sm font-semibold">Savings goal</h3><p className="mt-1 text-xs text-[#858981]">Set aside cash without counting it as spending.</p></div><Sparkles size={17} className="text-[#748a6d]" aria-hidden="true"/></div>
                 <label htmlFor="goal-name" className="sr-only">Savings goal name</label><input id="goal-name" value={state.savingsGoal.name} onChange={(event) => dispatch({ type: "savings-goal", name: event.target.value, target: state.savingsGoal.target })} placeholder="Goal name" className={`${fieldClass} mt-3`}/>
                 <label htmlFor="goal-target" className="mb-1 mt-3 block text-xs font-medium text-[#737970]">Goal target (₹)</label><input id="goal-target" type="number" min="0.01" step="0.01" value={goalTargetDraft} onChange={(event) => { const raw = event.target.value; setGoalTargetDraft(raw); const target = raw === "" ? 0 : Number(raw); if (Number.isFinite(target) && target >= 0) dispatch({ type: "savings-goal", name: state.savingsGoal.name, target }); }} className={fieldClass}/>
-                <div className="mt-3 flex justify-between text-xs text-[#747a72]"><span>Set aside {money(budget.reservedSavings)}</span><span>Target {money(targetValue)}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded bg-[#e9ebe6]" role="progressbar" aria-label="Savings goal progress" aria-valuenow={targetValue > 0 ? Math.min(100, Math.round(budget.reservedSavings / targetValue * 100)) : 0} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-[#81977a]" style={{ width: `${targetValue > 0 ? Math.min(100, budget.reservedSavings / targetValue * 100) : 0}%` }}/></div>
+                <div className="mt-3 flex justify-between text-xs text-[#747a72]"><span>Reserved toward goal {money(budget.reservedSavings)}</span><span>Target {money(targetValue)}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded bg-[#e9ebe6]" role="progressbar" aria-label="Savings goal progress" aria-valuenow={targetValue > 0 ? Math.min(100, Math.round(budget.reservedSavings / targetValue * 100)) : 0} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-[#81977a]" style={{ width: `${targetValue > 0 ? Math.min(100, budget.reservedSavings / targetValue * 100) : 0}%` }}/></div>
+                <p className="mt-2 text-xs text-[#747a72]">Still needed to reach target: <span className="font-semibold text-[#4a4e48]">{money(budget.savingsGoalGap)}</span> <span className="text-[#92968f]">(target minus reserved)</span></p>
                 <div className="mt-3 flex gap-2"><label htmlFor="savings-amount" className="sr-only">Amount to reserve or release</label><input id="savings-amount" type="number" min="0.01" step="0.01" value={savingsInput} onChange={(event) => {setSavingsInput(event.target.value); setGoalError("");}} placeholder="Amount ₹" className={fieldClass}/><button onClick={contributeSavings} className={primaryButton}>Reserve</button></div>
                 <button onClick={() => { const amount = parsePositiveAmount(savingsInput); if (amount === null || amount > budget.reservedSavings) { setGoalError("Enter a positive amount no greater than savings already set aside."); return; } dispatch({ type: "release-savings", amount }); setSavingsInput(""); setGoalError(""); }} disabled={budget.reservedSavings <= 0} className={`${secondaryButton} mt-2 w-full`}>Release set-aside funds</button>
                 {goalError && <p role="alert" className="mt-2 text-xs font-medium text-[#985447]">{goalError}</p>}
@@ -256,7 +269,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section id="commitments" className={activeSection === "money-plan" && moneyPlanTab === "commitments" ? "scroll-mt-20" : "hidden"} aria-labelledby="commitments-title">
+          <section id={moneyPlanTabs[1].panelId} role="tabpanel" aria-labelledby={moneyPlanTabs[1].tabId} className={activeSection === "money-plan" && moneyPlanTab === moneyPlanTabs[1].id ? "scroll-mt-20" : "hidden"}>
             <SectionHeading eyebrow="Plan ahead" title="Commitments" description="Unpaid planned bills are reserved; marking one paid moves it into transactions."/>
             {state.commitments.length === 0 ? <p className="mt-4 border-y border-[#e7e8e3] py-5 text-sm text-[#838880]">No commitments added. Add bills or planned payments to reserve them in your budget.</p> : <div className="mt-4 divide-y divide-[#e7e8e3] border-y border-[#e7e8e3]">{state.commitments.slice().sort((a,b) => a.dueDay-b.dueDay).map((item) => <PlannedRow key={item.id} item={item} dueLabel={`Due day ${item.dueDay}`} onPay={() => payCommitment(item)} onRemove={() => dispatch({ type: "remove-commitment", id: item.id })} canPay={item.amount <= budget.cashBalance - budget.reservedSavings}/>)}</div>}
             <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(150px,1fr)_150px_115px_auto]">
@@ -268,7 +281,7 @@ export default function Home() {
             {commitmentError && <p role="alert" className="mt-2 text-xs font-medium text-[#985447]">{commitmentError}</p>}
           </section>
 
-          <section id="subscriptions" className={activeSection === "money-plan" && moneyPlanTab === "subscriptions" ? "scroll-mt-20" : "hidden"} aria-labelledby="subscriptions-title">
+          <section id={moneyPlanTabs[2].panelId} role="tabpanel" aria-labelledby={moneyPlanTabs[2].tabId} className={activeSection === "money-plan" && moneyPlanTab === moneyPlanTabs[2].id ? "scroll-mt-20" : "hidden"}>
             <SectionHeading eyebrow="Recurring costs" title="Subscriptions" description="Add a recurring charge. Each occurrence is reserved until you mark it paid."/>
             {listedSubscriptions.length === 0 ? <p className="mt-4 border-y border-[#e7e8e3] py-5 text-sm text-[#838880]">No subscriptions yet. Recurring costs you add will appear here and in your reserved charges.</p> : <div className="mt-4 divide-y divide-[#e7e8e3] border-y border-[#e7e8e3]">{listedSubscriptions.map((item) => <PlannedRow key={item.id} item={item} dueLabel={item.dueDay <= CHALLENGE_DAYS ? `Next charge day ${item.dueDay} · repeats every ${item.intervalDays} days` : `Next cycle after day 30 · repeats every ${item.intervalDays} days`} onPay={() => paySubscription(item)} onRemove={() => dispatch({ type: "remove-subscription", id: item.id })} canPay={item.dueDay <= state.day && item.amount <= budget.cashBalance - budget.reservedSavings}/>)}</div>}
             <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(130px,1fr)_125px_105px_110px_auto]">
@@ -322,7 +335,7 @@ function WorkspaceMetric({ label, value, note, strong = false }: { label: string
 
 function ScenarioPanel({ scenario, currentAvailable, skipProjected, currentRisk, currentHealth }: { scenario: DecisionScenario; currentAvailable: number; skipProjected: number; currentRisk: string; currentHealth: string }) {
   const isSkip = scenario.id === "skip";
-  const riskTone = scenario.budget.risk === "Low" ? "text-[#426843] bg-[#edf3eb]" : scenario.budget.risk === "High" ? "text-[#914f43] bg-[#f7ece9]" : "text-[#80652d] bg-[#f7f1e4]";
+  const riskTone = scenario.budget.risk === "Low" ? "text-[#426843] bg-[#edf3eb]" : scenario.budget.risk === "High" ? "text-[#914f43] bg-[#f7ece9]" : scenario.budget.risk === "Medium" ? "text-[#80652d] bg-[#f7f1e4]" : "text-[#62685f] bg-[#f0f1ed]";
   const riskLabel = scenario.budget.risk === "Insufficient data" ? "Insufficient data" : `${scenario.budget.risk} risk`;
   return <article className="min-w-0 border border-[#e5e7e1] bg-white p-4" aria-label={`${scenario.label} scenario`}>
     <div className="flex items-center justify-between gap-2 border-b border-[#eff0ed] pb-2"><h3 className="text-sm font-semibold">{scenario.label}</h3><span className={`rounded px-2 py-1 text-[0.65rem] font-medium ${scenario.affordable ? "bg-[#edf3eb] text-[#426843]" : "bg-[#f7ece9] text-[#914f43]"}`}>{scenario.affordable ? (isSkip ? "No purchase" : "Affordable") : "Not affordable"}</span></div>
@@ -339,7 +352,7 @@ function ScenarioPanel({ scenario, currentAvailable, skipProjected, currentRisk,
       <div className="flex justify-between gap-2"><dt className="text-[#777c74]">Savings goal</dt><dd className="text-right font-medium">{scenario.savingsTargetReachable ? "Reachable" : `Short by ${money(scenario.budget.savingsGoalGap - scenario.budget.availableToSpend)}`}</dd></div>
       <div className="flex justify-between gap-2"><dt className="text-[#777c74]">Upcoming bills</dt><dd className="text-right font-medium">{scenario.commitmentsCovered ? "Covered" : "Shortfall"}</dd></div>
     </dl>
-    <div className="mt-3 border-t border-[#eff0ed] pt-3"><span className={`inline-flex rounded px-2 py-1 text-[0.65rem] font-semibold ${riskTone}`}>{riskLabel}</span><p className="mt-1.5 text-xs font-medium">{scenario.budget.health}</p><p className="mt-1 text-[0.68rem] leading-5 text-[#777c74]">{!isSkip && !scenario.affordable ? `Hypothetical only: this choice exceeds available funds by ${money(scenario.shortfall)}. ${scenario.budget.riskReason}` : scenario.budget.riskReason}</p><p className="mt-1 text-[0.65rem] text-[#92968f]">{scenario.budget.risk === currentRisk && scenario.budget.health === currentHealth ? "Same as current status" : `Current status: ${currentRisk} / ${currentHealth}`}</p></div>
+    <div className="mt-3 border-t border-[#eff0ed] pt-3"><div className="flex items-center justify-between gap-2"><span className="text-[0.65rem] font-medium text-[#777c74]">{isSkip ? "Current financial risk" : "Hypothetical scenario risk"}</span><span className={`inline-flex rounded px-2 py-1 text-[0.65rem] font-semibold ${riskTone}`}>{riskLabel}</span></div><p className="mt-1.5 text-xs font-medium">{scenario.budget.health}</p><p className="mt-1 text-[0.68rem] leading-5 text-[#777c74]">{!isSkip && !scenario.affordable ? `Hypothetical only: this choice exceeds available funds by ${money(scenario.shortfall)}. ${scenario.budget.riskReason}` : scenario.budget.riskReason}</p><p className="mt-1 text-[0.65rem] text-[#92968f]">{scenario.budget.risk === currentRisk && scenario.budget.health === currentHealth ? "Same as current status" : `Current status: ${currentRisk} / ${currentHealth}`}</p></div>
   </article>;
 }
 

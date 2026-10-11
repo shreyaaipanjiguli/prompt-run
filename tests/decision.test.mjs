@@ -68,6 +68,36 @@ test("unexpected expense preview uses the shared budget and does not record it",
   assert.equal(state.expenses.length, 1);
 });
 
+test("scenario risk and explanation come from the same hypothetical budget without mutating the ledger", () => {
+  const state = scenarioLedger();
+  const before = structuredClone(state);
+  const scenario = simulateExpense(state, {
+    id: "buy",
+    entryId: -10,
+    name: "Large purchase",
+    category: "Personal",
+    amount: 8100,
+    day: 7,
+    goalTarget: 2000,
+  });
+  const expectedBudget = calculateBudget({
+    ...state,
+    expenses: [...state.expenses, { id: -10, name: "Large purchase", amount: 8100, day: 7, category: "Personal" }],
+    savingsGoalTarget: 2000,
+  });
+
+  assert.deepEqual(state, before, "preview does not mutate current financial state");
+  assert.equal(scenario.budget.risk, expectedBudget.risk);
+  assert.equal(scenario.budget.riskReason, expectedBudget.riskReason);
+  assert.equal(scenario.affordable, false);
+  assert.ok(scenario.shortfall > 0);
+  const rejected = ledgerReducer(state, {
+    type: "simulated-expense",
+    entry: { id: 20, name: "Large purchase", amount: 8100, day: 7, category: "Personal" },
+  });
+  assert.equal(rejected, state, "unaffordable scenario cannot be confirmed into the ledger");
+});
+
 test("cancel or skip is a no-op; confirmed purchase records exactly once", () => {
   const state = scenarioLedger();
   const original = calculateBudget(state);

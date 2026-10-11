@@ -1,85 +1,93 @@
 # Survive30 — Personal Finance Simulator
 
-**A smarter way to make every rupee count.**
+**Make informed financial decisions before spending your money.**
 
-**Live Demo:** https://prompt-run-sandy.vercel.app  
-**GitHub Repository:** https://github.com/shreyaaipanjiguli/prompt-run
+[**Live Demo**](https://prompt-run-sandy.vercel.app) · [**GitHub Repository**](https://github.com/shreyaaipanjiguli/prompt-run)
+
+---
 
 ## Overview
 
-Survive30 is a personal finance experience designed for Gen Z to manage a limited budget of **₹10,000 over 30 days**.
+Survive30 is an interactive personal finance experience built for Gen Z to manage a limited budget of **₹10,000 over 30 days**.
 
-Instead of simply recording expenses, Survive30 helps users understand the consequences of financial decisions before making them. Users can explore spending scenarios, account for upcoming commitments, protect savings goals, and see how their choices affect their remaining balance, daily allowance, projected month-end balance, and financial health.
+Rather than simply recording transactions, Survive30 helps users explore financial decisions before committing to them. It connects available funds, spending, savings goals, upcoming commitments, subscriptions, projected month-end balance, and financial risk in one workspace.
 
-The goal is simple: make financial decisions more transparent, understandable, and intentional.
+The goal is to make the consequences of everyday financial choices easier to understand.
 
 ## The Problem
 
-Managing a limited budget can be challenging when everyday purchases compete with bills, subscriptions, savings goals, and unexpected expenses.
+Managing a limited budget requires balancing daily spending with savings goals, upcoming bills, subscriptions, and unexpected expenses.
 
-Traditional expense trackers mainly show users where their money went. They may not help users understand whether a purchase is affordable or how it could affect the rest of the month.
+A traditional expense tracker can show where money went, but it may not explain whether a planned purchase is affordable or how that decision could affect the rest of the month.
 
-Survive30 addresses this challenge through an interactive financial planning and decision-simulation experience.
+Survive30 addresses this challenge with a connected budgeting experience and an interactive decision simulator that makes potential financial consequences visible before a decision is confirmed.
 
-## Key Features
+## Features
 
 ### 1. Financial Overview
-- View available funds and spending at a glance.
-- Track daily allowance and budget progress.
-- View projected Day-30 balance.
-- Understand financial risk and the factors influencing it.
+- View available-to-spend funds and daily allowance.
+- Track progress through the 30-day challenge.
+- Review the projected Day-30 balance.
+- Understand financial risk through visible explanations.
+- View baseline estimates when completed-day spending history is unavailable.
 
 ### 2. Money Plan
-- Organize income and available funds.
-- Account for savings allocations and goals.
-- Track upcoming financial commitments.
-- Include subscriptions and unpaid obligations in financial planning.
+- Review starting funds, received income, and paid expenses.
+- Distinguish cash balance from available-to-spend funds.
+- Set a savings goal and track the amount actually reserved.
+- See how much remains to reach a savings target.
+- Account for upcoming commitments and subscriptions.
 
 ### 3. Activity Tracking
-- Review recorded transactions.
-- Understand how paid expenses affect available funds.
-- Keep financial activity connected to the overall budget.
+- Review recorded financial transactions.
+- Keep paid expenses connected to the shared budget.
+- Understand how confirmed transactions affect available funds.
 
 ### 4. Decision Simulator
-- Compare buying, skipping, and alternative purchase scenarios.
+- Compare buying, skipping, and choosing an alternative.
 - Explore the effect of unexpected expenses.
-- Compare available-to-spend amounts, daily allowance, and projected Day-30 balance.
-- Understand how decisions affect savings goals, commitments, and financial risk.
-- Preview hypothetical decisions before committing them.
+- Review affordability before confirming a decision.
+- Compare projected Day-30 outcomes against the Skip scenario.
+- Understand potential effects on savings goals, upcoming bills, daily allowance, and financial risk.
+- Keep hypothetical scenarios separate from actual financial activity.
 - Prevent unaffordable purchases from being confirmed.
 
 ### 5. Financial Forecasting
-- Estimate the projected balance at the end of the 30-day period.
-- Use a baseline spending estimate when completed-day spending history is unavailable.
-- Incorporate observed spending history when available.
-- Make financial risk more understandable through explicit rules and explanations.
+- Estimate the projected balance at the end of the challenge.
+- Use a baseline spending rate when completed-day history is unavailable.
+- Use observed completed-day spending history when available.
+- Explain forecast assumptions and financial risk to help users interpret estimates.
 
-### 6. Connected Financial State
-Financial information is shared across the app so that recorded expenses and confirmed decisions can affect the relevant financial views rather than remaining isolated in separate screens.
+### 6. Accessibility and Usability
+- Provide keyboard navigation for Money Plan tabs.
+- Link tabs and panels with appropriate accessibility attributes.
+- Keep the interface focused on clear financial information and understandable decisions.
 
 ## How It Works
 
-1. **Start with a ₹10,000 budget.** Understand your available funds and daily spending allowance.
-2. **Plan your money.** Account for savings goals, commitments, and subscriptions.
-3. **Explore a decision.** Compare buying, skipping, or choosing an alternative.
-4. **Review the consequences.** Examine affordability, projected balance, daily allowance, and financial risk.
-5. **Make an informed choice.** Confirm eligible purchases or keep the decision as a hypothetical scenario.
+1. **Start with ₹10,000.** Review the budget and daily allowance.
+2. **Plan ahead.** Set savings goals and account for upcoming commitments.
+3. **Explore a decision.** Compare a purchase with skipping it or selecting an alternative.
+4. **Review the consequences.** Examine affordability, projected balance, and financial risk.
+5. **Confirm carefully.** Eligible purchases can update the actual ledger; hypothetical scenarios remain separate.
 
-## Tech Stack
+## Technology Stack
 
 - **Framework:** Next.js
+- **UI library:** React
 - **Language:** TypeScript
-- **UI:** React
-- **Charts:** Recharts
-- **Styling:** CSS
+- **Styling:** Tailwind CSS and global CSS
+- **Scenario visualization:** Inline SVG
+- **Testing:** Node.js test runner
+- **Version control:** Git and GitHub
 - **Deployment:** Vercel
-- **Version Control:** Git and GitHub
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js and npm
+- Node.js
+- npm
 - Git
 
 ### Installation
@@ -90,7 +98,7 @@ Clone the repository:
 git clone https://github.com/shreyaaipanjiguli/prompt-run.git
 ```
 
-Navigate to the project directory:
+Move into the project directory:
 
 ```bash
 cd prompt-run
@@ -110,79 +118,67 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Available Commands
+## Available Commands
 
-```bash
-npm run dev
-```
-
-Starts the development server.
-
-```bash
-npm run lint
-```
-
-Runs lint checks.
-
-```bash
-npx tsc --noEmit
-```
-
-Checks TypeScript types.
-
-```bash
-npm test
-```
-
-Runs the project's tests.
-
-```bash
-npm run build
-```
-
-Builds the application for production.
-
-## Design Principles
-
-Survive30 is designed around the following principles:
-
-- **Clarity:** Present important financial information without unnecessary complexity.
-- **Transparency:** Explain projected outcomes and financial risk.
-- **Decision-first experience:** Help users evaluate a decision before committing to it.
-- **Connected consequences:** Reflect financial decisions across relevant views.
-- **Accessible interaction:** Keep navigation, labels, and important warnings understandable.
-- **Responsive design:** Aim for a consistent experience across screen sizes.
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run lint` | Run lint checks |
+| `npx tsc --noEmit` | Check TypeScript types |
+| `npm test` | Run automated tests |
+| `npm run build` | Build the production application |
 
 ## Project Structure
 
 ```text
 prompt-run/
-├── app/          # Next.js application pages and styles
-├── lib/          # Financial calculations, decision logic, and ledger
-├── tests/        # Automated tests
-├── public/       # Static assets
-├── package.json  # Dependencies and scripts
+├── app/
+│   ├── page.tsx
+│   ├── layout.tsx
+│   └── globals.css
+├── lib/
+│   ├── budget.ts
+│   ├── decision.ts
+│   ├── ledger.ts
+│   └── money-plan-tabs.ts
+├── tests/
+│   ├── budget.test.mjs
+│   ├── decision.test.mjs
+│   └── money-plan-tabs.test.mjs
+├── public/
+├── package.json
 └── README.md
 ```
 
+## Design Principles
+
+- **Decision-first finance:** Help users evaluate choices before committing money.
+- **Transparency:** Explain forecasts, affordability, and risk.
+- **Connected budgeting:** Keep spending, savings, commitments, and projections consistent.
+- **Clear financial boundaries:** Separate cash, reserved savings, unpaid obligations, and paid expenses.
+- **Responsible simulation:** Keep hypothetical scenarios separate from confirmed transactions.
+- **Accessible interaction:** Support keyboard navigation and meaningful relationships between tabs and panels.
+
 ## Future Improvements
 
-Potential areas for further development include:
+Potential directions for future development include:
 
-- Persistent user accounts and financial data.
-- Customizable budget periods and financial goals.
-- More advanced scenario comparisons.
-- Improved financial insights and personalized recommendations.
-- Additional accessibility and usability testing.
+- Persistent financial data and optional user accounts.
+- More customizable budgets and savings goals.
+- Additional scenario comparisons and financial insights.
+- Expanded browser-based accessibility and interaction testing.
+- Performance measurement and optimization based on real-world results.
 
 ## Live Application
 
-**Try Survive30:** https://prompt-run-sandy.vercel.app
+Try Survive30 here:
+
+**https://prompt-run-sandy.vercel.app**
 
 ## Built For
 
-**PROMPT RUN 2026** — a web development hackathon focused on building useful, interactive digital experiences.
+**PROMPT RUN 2026** — a web development hackathon.
 
 ---
 
-*Survive30 is an educational budgeting and financial simulation project, not professional financial advice.*
+*Survive30 is an educational budgeting and financial simulation project. Its forecasts are estimates, not guarantees, and it does not provide professional financial advice.*
