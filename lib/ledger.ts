@@ -8,6 +8,7 @@ export type LedgerState = {
   commitments: PlannedCharge[];
   subscriptions: Subscription[];
   reservedSavings: number;
+  savingsGoal: { name: string; target: number };
 };
 export type LedgerAction =
   | { type: "income" | "expense" | "simulated-expense"; entry: FinancialEntry }
@@ -18,6 +19,7 @@ export type LedgerAction =
   | { type: "remove-commitment" | "remove-subscription"; id: number }
   | { type: "reserve-savings"; amount: number }
   | { type: "release-savings"; amount: number }
+  | { type: "savings-goal"; name: string; target: number }
   | { type: "advance-day" };
 
 export const initialLedgerState: LedgerState = {
@@ -27,10 +29,11 @@ export const initialLedgerState: LedgerState = {
   commitments: [],
   subscriptions: [],
   reservedSavings: 0,
+  savingsGoal: { name: "Emergency buffer", target: 2000 },
 };
 
 export function ledgerReducer(state: LedgerState, action: LedgerAction): LedgerState {
-  const budget = calculateBudget(state);
+  const budget = calculateBudget({ ...state, savingsGoalTarget: state.savingsGoal?.target ?? 0 });
   switch (action.type) {
     case "income":
       if (!isValidEntry(action.entry, state)) return state;
@@ -72,6 +75,9 @@ export function ledgerReducer(state: LedgerState, action: LedgerAction): LedgerS
     case "release-savings":
       if (!isPositiveFinite(action.amount) || action.amount > state.reservedSavings) return state;
       return { ...state, reservedSavings: (toPaise(state.reservedSavings) - toPaise(action.amount)) / 100 };
+    case "savings-goal":
+      if (!Number.isFinite(action.target) || action.target < 0 || !Number.isSafeInteger(toPaise(action.target))) return state;
+      return { ...state, savingsGoal: { name: action.name.trim(), target: toPaise(action.target) / 100 } };
     case "advance-day":
       return state.day <= CHALLENGE_DAYS ? { ...state, day: state.day + 1 } : state;
     default:

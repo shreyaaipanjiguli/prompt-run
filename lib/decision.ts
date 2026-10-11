@@ -8,6 +8,8 @@ export type DecisionScenario = {
   budget: ReturnType<typeof calculateBudget>;
   commitmentsCovered: boolean;
   savingsTargetReachable: boolean;
+  affordable: boolean;
+  shortfall: number;
 };
 
 export function simulateExpense(
@@ -21,26 +23,30 @@ export function simulateExpense(
     category: options.category,
     day: options.day,
   };
-  const budget = calculateBudget({ ...state, expenses: [...state.expenses, entry] });
-  const savingsGap = Math.max(0, options.goalTarget - budget.reservedSavings);
+  const currentBudget = calculateBudget({ ...state, savingsGoalTarget: options.goalTarget });
+  const budget = calculateBudget({ ...state, expenses: [...state.expenses, entry], savingsGoalTarget: options.goalTarget });
   return {
     id: options.id,
     label: options.id === "alternative" ? "Alternative" : options.id === "unexpected" ? "Unexpected expense" : "Buy",
     amount: options.amount,
     budget,
     commitmentsCovered: budget.cashBalance >= budget.reservedSavings + budget.reservedCharges,
-    savingsTargetReachable: budget.availableToSpend >= savingsGap,
+    savingsTargetReachable: budget.savingsGoalReachable,
+    affordable: options.amount <= currentBudget.availableToSpend,
+    shortfall: Math.max(0, options.amount - currentBudget.availableToSpend),
   };
 }
 
 export function simulateSkip(state: BudgetInput, goalTarget: number): DecisionScenario {
-  const budget = calculateBudget(state);
+  const budget = calculateBudget({ ...state, savingsGoalTarget: goalTarget });
   return {
     id: "skip",
     label: "Skip",
     amount: 0,
     budget,
     commitmentsCovered: budget.cashBalance >= budget.reservedSavings + budget.reservedCharges,
-    savingsTargetReachable: budget.availableToSpend >= Math.max(0, goalTarget - budget.reservedSavings),
+    savingsTargetReachable: budget.savingsGoalReachable,
+    affordable: true,
+    shortfall: 0,
   };
 }

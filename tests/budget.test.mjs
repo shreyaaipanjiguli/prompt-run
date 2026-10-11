@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateBudget, parsePositiveAmount, STARTING_FUNDS } from "../lib/budget.ts";
+import { BASELINE_DAILY_SPENDING, calculateBudget, parsePositiveAmount, STARTING_FUNDS } from "../lib/budget.ts";
 import { initialLedgerState, ledgerReducer } from "../lib/ledger.ts";
 
 const emptyLedger = {
@@ -61,6 +61,122 @@ test("end of day 30 has no remaining days and no projected future spending", () 
   assert.equal(result.projectedAvailable, STARTING_FUNDS);
 });
 
+test("day 1 has a transparent baseline estimate before history exists", () => {
+  const result = calculateBudget(emptyLedger);
+  assert.equal(result.forecastBasis, "baseline");
+  assert.equal(result.averageDailySpend, null, "no actual observed average is claimed");
+  assert.equal(result.forecastDailySpendRate, BASELINE_DAILY_SPENDING);
+  assert.equal(result.fullFutureDays, 29);
+  assert.equal(result.expectedCurrentDaySpend, 333.33);
+  assert.equal(result.expectedRemainingSpend, 10000);
+  assert.equal(result.projectedAvailable, 0);
+  assert.equal(result.risk, "Medium", "the assumed zero month-end buffer meets the documented limited-buffer rule");
+  assert.match(result.riskReason, /baseline estimate.*limited buffer/i);
+});
+
+test("Day 1 with ₹7,000 paid spending forecasts a real assumed shortfall and high risk", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    expenses: [{ id: 1, name: "Paid spending", amount: 7000, day: 1, category: "Other" }],
+    savingsGoalTarget: 2000,
+  });
+  assert.equal(result.cashBalance, 3000);
+  assert.equal(result.availableToSpend, 3000);
+  assert.equal(result.forecastBasis, "baseline");
+  assert.equal(result.expectedCurrentDaySpend, 0);
+  assert.equal(result.expectedRemainingSpend, 9666.67);
+  assert.equal(result.projectedAvailable, -6666.67);
+  assert.equal(result.risk, "High");
+  assert.match(result.riskReason, /baseline estimate is .* below zero/i);
+});
+
+test("zero available-to-spend remains zero now and negative forecast is not clamped", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    expenses: [{ id: 1, name: "All funds spent", amount: 10000, day: 1, category: "Other" }],
+  });
+  assert.equal(result.availableToSpend, 0);
+  assert.ok(result.projectedAvailable < 0);
+  assert.equal(result.risk, "High");
+});
+
+test("Day 2 forecast covers 29 remaining days including today exactly once", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    day: 2,
+    expenses: [{ id: 1, name: "Day one", amount: 5000, day: 1, category: "Food" }],
+  });
+  assert.equal(result.completedDays, 1);
+  assert.equal(result.daysRemaining, 29, "remaining includes current day");
+  assert.equal(result.fullFutureDays, 28, "full future days exclude current day");
+  assert.equal(result.averageDailySpend, 5000);
+  assert.equal(result.availableToSpend, 5000);
+  assert.equal(result.expectedCurrentDaySpend, 5000);
+  assert.equal(result.expectedRemainingSpend, 145000);
+  assert.equal(result.projectedAvailable, -140000);
+  assert.equal(result.risk, "High");
+  assert.equal(result.projectedAvailable, result.availableToSpend - result.expectedRemainingSpend);
+});
+
+test("Day 2 current-day spending is already in balance and reduces only today's remaining estimate", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    day: 2,
+    expenses: [
+      { id: 1, name: "Day one", amount: 5000, day: 1, category: "Food" },
+      { id: 2, name: "Today", amount: 1000, day: 2, category: "Food" },
+    ],
+  });
+  assert.equal(result.availableToSpend, 4000);
+  assert.equal(result.expectedCurrentDaySpend, 4000);
+  assert.equal(result.expectedRemainingSpend, 144000);
+  assert.equal(result.projectedAvailable, -140000);
+});
+
+test("zero completed-day spending projects zero future spending", () => {
+  const result = calculateBudget({ ...emptyLedger, day: 2 });
+  assert.equal(result.averageDailySpend, 0);
+  assert.equal(result.expectedCurrentDaySpend, 0);
+  assert.equal(result.expectedRemainingSpend, 0);
+  assert.equal(result.projectedAvailable, result.availableToSpend);
+});
+
+test("forecast changes from baseline to completed-day observed spending", () => {
+  const baseline = calculateBudget({ ...emptyLedger, day: 1 });
+  const observed = calculateBudget({
+    ...emptyLedger,
+    day: 3,
+    expenses: [
+      { id: 1, name: "Day one", amount: 200, day: 1, category: "Food" },
+      { id: 2, name: "Today", amount: 100, day: 3, category: "Food" },
+    ],
+  });
+  assert.equal(baseline.forecastBasis, "baseline");
+  assert.equal(observed.forecastBasis, "observed");
+  assert.equal(observed.averageDailySpend, 100);
+  assert.equal(observed.forecastDailySpendRate, 100);
+  assert.equal(observed.completedDays, 2);
+  assert.equal(observed.fullFutureDays, 27);
+  assert.equal(observed.expectedRemainingSpend, 2700);
+  assert.equal(observed.projectedAvailable, 7000);
+});
+
+test("baseline subtracts unpaid bills and savings once, without treating them as spending", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    reservedSavings: 1000,
+    commitments: [{ id: 1, name: "Rent", amount: 2000, dueDay: 10 }],
+    subscriptions: [{ id: 2, name: "Music", amount: 300, dueDay: 12, intervalDays: 30 }],
+  });
+  assert.equal(result.cashBalance, STARTING_FUNDS);
+  assert.equal(result.paidExpenses, 0);
+  assert.equal(result.reservedCharges, 2300);
+  assert.equal(result.availableToSpend, 6700);
+  assert.equal(result.expectedRemainingSpend, 10000);
+  assert.equal(result.projectedAvailable, -3300);
+  assert.equal(result.projectedAvailable, result.availableToSpend - result.expectedRemainingSpend);
+});
+
 test("canonical day model keeps current-day counts consistent from day 1 through completion", () => {
   const day1 = calculateBudget({ ...emptyLedger, day: 1 });
   assert.deepEqual([day1.displayDay, day1.completedDays, day1.daysRemaining, day1.progressPercent], [1, 0, 30, 0]);
@@ -68,6 +184,15 @@ test("canonical day model keeps current-day counts consistent from day 1 through
   assert.deepEqual([day7.displayDay, day7.completedDays, day7.daysRemaining, day7.progressPercent], [7, 6, 24, 20]);
   const day30 = calculateBudget({ ...emptyLedger, day: 30 });
   assert.deepEqual([day30.displayDay, day30.completedDays, day30.daysRemaining, day30.progressPercent], [30, 29, 1, 29 / 30 * 100]);
+  const finalDayWithHistory = calculateBudget({
+    ...emptyLedger,
+    day: 30,
+    expenses: [{ id: 1, name: "Earlier spending", amount: 2900, day: 1, category: "Food" }],
+  });
+  assert.equal(finalDayWithHistory.fullFutureDays, 0);
+  assert.equal(finalDayWithHistory.expectedCurrentDaySpend, 100);
+  assert.equal(finalDayWithHistory.expectedRemainingSpend, 100);
+  assert.equal(finalDayWithHistory.projectedAvailable, 7000);
   const complete = calculateBudget({ ...emptyLedger, day: 31 });
   assert.deepEqual([complete.displayDay, complete.completedDays, complete.daysRemaining, complete.progressPercent], [30, 30, 0, 100]);
 });
@@ -89,11 +214,72 @@ test("forecast uses completed-day pace for full future days, not current-day pay
 test("negative forecast yields high risk and remains negative", () => {
   const result = calculateBudget({
     ...emptyLedger,
-    day: 30,
-    expenses: [{ id: 1, name: "Spending", amount: 11000, day: 1, category: "Other" }],
+    day: 7,
+    expenses: [{ id: 1, name: "Spending pace", amount: 6000, day: 1, category: "Other" }],
   });
+  assert.ok(result.cashBalance > 0, "the current actual balance remains positive");
   assert.ok(result.projectedAvailable < 0);
   assert.equal(result.risk, "High");
+  assert.match(result.riskReason, /forecast is .* below zero/i);
+});
+
+test("baseline limited-buffer risk explains its assumption without an insufficient-data label", () => {
+  const result = calculateBudget(emptyLedger);
+  assert.equal(result.forecastBasis, "baseline");
+  assert.equal(result.risk, "Medium");
+  assert.match(result.riskReason, /baseline estimate.*less than 10% of starting funds/i);
+});
+
+test("a negative baseline forecast is high risk even when the savings target is also unreachable", () => {
+  const result = calculateBudget({ ...emptyLedger, reservedSavings: 1000, savingsGoalTarget: 12000 });
+  assert.equal(result.forecastBasis, "baseline");
+  assert.equal(typeof result.projectedAvailable, "number");
+  assert.equal(result.savingsGoalReachable, false);
+  assert.ok(result.projectedAvailable < 0);
+  assert.equal(result.risk, "High");
+  assert.match(result.riskReason, /baseline estimate is .* below zero/i);
+});
+
+test("adequate forecast buffer is low risk and limited available cash is high risk", () => {
+  const adequate = calculateBudget({
+    ...emptyLedger,
+    day: 2,
+    expenses: [{ id: 1, name: "Day one", amount: 100, day: 1, category: "Other" }],
+    savingsGoalTarget: 1000,
+  });
+  assert.equal(adequate.risk, "Low");
+  const lowCash = calculateBudget({
+    ...emptyLedger,
+    expenses: [{ id: 1, name: "Paid spending", amount: 9500, day: 1, category: "Other" }],
+  });
+  assert.equal(lowCash.availableToSpend, 500);
+  assert.equal(lowCash.risk, "High");
+  assert.match(lowCash.riskReason, /5% of starting funds/i);
+});
+
+test("unpaid obligations that exceed cash are high risk without counting them as paid", () => {
+  const result = calculateBudget({
+    ...emptyLedger,
+    day: 2,
+    expenses: [{ id: 1, name: "Paid", amount: 9000, day: 1, category: "Other" }],
+    commitments: [{ id: 2, name: "Rent", amount: 2000, dueDay: 3 }],
+  });
+  assert.equal(result.paidExpenses, 9000);
+  assert.equal(result.pendingCommitments, 2000);
+  assert.equal(result.risk, "High");
+  assert.match(result.riskReason, /short of savings and unpaid bills/i);
+});
+
+test("confirmed income can recover the forecast and risk immediately", () => {
+  let state = {
+    ...emptyLedger,
+    day: 30,
+    expenses: [{ id: 1, name: "Spending", amount: 11000, day: 1, category: "Other" }],
+  };
+  assert.equal(calculateBudget(state).risk, "High");
+  state = ledgerReducer(state, { type: "income", entry: { id: 2, name: "Received pay", amount: 12000, day: 30, category: "Income" } });
+  assert.equal(calculateBudget(state).cashBalance, 11000);
+  assert.equal(calculateBudget(state).risk, "Low");
 });
 
 test("amount parser rejects blank, zero, negative, and non-finite values", () => {

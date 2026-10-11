@@ -24,12 +24,30 @@ test("buy, skip, and cheaper alternative compare through the shared budget calcu
   assert.equal(alternative.budget.availableToSpend, skip.budget.availableToSpend - 1500);
   assert.equal(skip.budget.pendingCommitments, 1000);
   assert.equal(buy.budget.paidExpenses, skip.budget.paidExpenses + 3000);
+  assert.equal(buy.affordable, true);
   assert.equal(buy.budget.dailyAllowance, buy.budget.availableToSpend / buy.budget.daysRemaining);
-  assert.equal(buy.budget.projectedAvailable, skip.budget.projectedAvailable - 3000);
+  assert.equal(buy.budget.projectedAvailable, skip.budget.projectedAvailable - 2900, "the purchase replaces the remaining current-day estimate up to its daily rate");
   assert.equal(buy.commitmentsCovered, true);
   assert.equal(buy.savingsTargetReachable, true);
   assert.equal(3000 - 1500, 1500);
   assert.equal(state.expenses.length, 1, "preview must not mutate the actual ledger");
+
+  const recorded = ledgerReducer(state, { type: "simulated-expense", entry: { id: 9, name: "Headphones", amount: 3000, day: 7, category: "Personal" } });
+  assert.equal(recorded.expenses.length, state.expenses.length + 1);
+  assert.equal(calculateBudget(recorded).projectedAvailable, buy.budget.projectedAvailable, "Overview after recording matches the equivalent simulator Buy scenario");
+});
+
+test("day-1 decision scenarios share the baseline forecast and change it by the purchase amount", () => {
+  const state = { ...structuredClone(initialLedgerState), savingsGoal: { name: "Buffer", target: 1000 } };
+  const skip = simulateSkip(state, 1000);
+  const buy = simulateExpense(state, { id: "buy", entryId: -1, name: "Book", category: "Education", amount: 500, day: 1, goalTarget: 1000 });
+  assert.equal(skip.budget.forecastBasis, "baseline");
+  assert.equal(buy.budget.forecastBasis, "baseline");
+  assert.equal(buy.budget.expectedCurrentDaySpend, 0);
+  assert.equal(skip.budget.expectedCurrentDaySpend, 333.33);
+  assert.equal(Math.round((skip.budget.expectedRemainingSpend - buy.budget.expectedRemainingSpend) * 100), 33333);
+  assert.equal(Math.round((skip.budget.projectedAvailable - buy.budget.projectedAvailable) * 100), 16667);
+  assert.equal(state.expenses.length, 0, "scenario calculation leaves actual state unchanged");
 });
 
 test("a large scenario flags savings and bill shortfalls and preserves negative projections", () => {
@@ -70,6 +88,51 @@ test("insufficient funds are rejected by the shared ledger confirmation reducer"
   const available = calculateBudget(state).availableToSpend;
   const rejected = ledgerReducer(state, { type: "simulated-expense", entry: { id: 4, name: "Too expensive", amount: available + 0.01, day: 7, category: "Purchase" } });
   assert.equal(rejected, state);
+});
+
+test("₹700 available and a ₹6,000 decision shows a ₹5,300 hypothetical shortfall", () => {
+  const state = { ...structuredClone(initialLedgerState), expenses: [{ id: 1, name: "Paid spending", amount: 9300, day: 1, category: "Other" }] };
+  const current = calculateBudget({ ...state, savingsGoalTarget: state.savingsGoal.target });
+  const buy = simulateExpense(state, { id: "buy", entryId: -1, name: "Laptop", category: "Education", amount: 6000, day: 1, goalTarget: 2000 });
+  const alternative = simulateExpense(state, { id: "alternative", entryId: -2, name: "Used laptop", category: "Education", amount: 500, day: 1, goalTarget: 2000 });
+  assert.equal(current.availableToSpend, 700);
+  assert.equal(buy.affordable, false);
+  assert.equal(buy.shortfall, 5300);
+  assert.equal(alternative.affordable, true);
+  assert.equal(alternative.budget.availableToSpend, 200);
+  const rejected = ledgerReducer(state, { type: "simulated-expense", entry: { id: 2, name: "Laptop", amount: 6000, day: 1, category: "Education" } });
+  assert.equal(rejected, state);
+});
+
+test("an equal-price alternative reports zero saved", () => {
+  const state = scenarioLedger();
+  const full = simulateExpense(state, { id: "buy", entryId: -1, name: "Item", category: "Personal", amount: 800, day: 7, goalTarget: 2000 });
+  const equal = simulateExpense(state, { id: "alternative", entryId: -2, name: "Item alternative", category: "Personal", amount: 800, day: 7, goalTarget: 2000 });
+  assert.equal(full.budget.availableToSpend - equal.budget.availableToSpend, 0);
+  assert.equal(full.budget.projectedAvailable, equal.budget.projectedAvailable);
+  assert.equal(full.budget.dailyAllowance, equal.budget.dailyAllowance);
+  assert.equal(full.budget.risk, equal.budget.risk);
+});
+
+test("unexpected cost above available-to-spend cannot be confirmed", () => {
+  const state = { ...structuredClone(initialLedgerState), expenses: [{ id: 1, name: "Paid spending", amount: 9300, day: 1, category: "Other" }] };
+  const unexpected = simulateExpense(state, { id: "unexpected", entryId: -1, name: "Repair", category: "Unexpected", amount: 1200, day: 1, goalTarget: 2000 });
+  assert.equal(unexpected.affordable, false);
+  assert.equal(unexpected.shortfall, 500);
+  const rejected = ledgerReducer(state, { type: "simulated-expense", entry: { id: 2, name: "Repair", amount: 1200, day: 1, category: "Unexpected" } });
+  assert.equal(rejected, state);
+});
+
+test("affordable unexpected cost records once only after confirmation", () => {
+  const state = scenarioLedger();
+  const before = calculateBudget(state);
+  const preview = simulateExpense(state, { id: "unexpected", entryId: -1, name: "Repair", category: "Unexpected", amount: 250, day: 7, goalTarget: 2000 });
+  assert.equal(preview.affordable, true);
+  assert.equal(calculateBudget(state).cashBalance, before.cashBalance);
+  const action = { type: "simulated-expense", entry: { id: 5, name: "Repair", amount: 250, day: 7, category: "Unexpected" } };
+  const confirmed = ledgerReducer(state, action);
+  assert.equal(confirmed.expenses.length, state.expenses.length + 1);
+  assert.equal(ledgerReducer(confirmed, action), confirmed);
 });
 
 test("day-30 scenarios use the existing no-future-days convention", () => {
